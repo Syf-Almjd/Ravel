@@ -20,6 +20,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Install Python requirements
 COPY backend/requirements.txt ./backend/
+COPY packages/ravel-check ./packages/ravel-check
 RUN pip install --no-cache-dir -r backend/requirements.txt
 
 # Copy backend application source

@@ -15,4 +15,5 @@ pyyaml>=6.0.0
 PyJWT>=2.8.0
 bcrypt>=4.1.0
 sqlalchemy>=2.0.0
-
+# Ravel's checks as a library (sanitizer + guard); the server uses it too
+./packages/ravel-check

@@ -1,0 +1,8 @@
+{
+  "files": {
+    "guard_svm.pkl": "7297879a05b8dff08ce303e65dbd7e906aa23c3c7413e99ce2e14825fbb68fe2",
+    "tfidf_vectorizer.pkl": "102d83a0ac14636df01f1745572ac41af713c4346434f9f7d154b6891d06fb7d"
+  },
+  "trained_by": "backend/scripts/train_guard.py",
+  "tested_with_sklearn": "1.9.1"
+}

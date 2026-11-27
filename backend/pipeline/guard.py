@@ -20,7 +20,6 @@ The SVM (Support Vector Machine) uses TF-IDF features to classify inputs.
 It's trained by the train_guard.py script on labeled data.
 """
 
-import json
 import os
 import re
 
@@ -47,26 +46,11 @@ class Guard:
     # ── Setup (runs once on startup) ─────────────────────────
 
     def _load_blocklist(self):
-        """Load keyword blocklist from a JSON file, or use built-in defaults.
-        These are regex patterns that catch obviously harmful requests."""
-        path = os.path.join(os.path.dirname(__file__), "..", config.BLOCKLIST_PATH)
-        if not os.path.exists(path):
-            # If no blocklist file exists, use these hardcoded defaults
-            defaults = [
-                r"\b(?:make|create|build)\s+(?:a\s+)?(?:bomb|weapon|explosive)",
-                r"\b(?:how\s+to\s+)?(?:hack|exploit|breach)\s+",
-                r"\b(?:generate|write|create)\s+(?:child|minor)\s+(?:porn|sexual)",
-                r"\bsynthesize\s+(?:drugs|meth|fentanyl)",
-                r"\b(?:kill|murder|assassinate)\s+(?:someone|a\s+person)",
-            ]
-            self.blocklist_patterns = [re.compile(p, re.IGNORECASE) for p in defaults]
-            return
+        """The keyword blocklist comes from the ravel-check package (packages/ravel-check/src/ravel/data), so the
+        server and every app that imports Ravel block the same requests."""
+        from ravel import guard as ravel_guard
 
-        with open(path) as f:
-            data = json.load(f)
-        self.blocklist_patterns = [
-            re.compile(p, re.IGNORECASE) for p in data.get("patterns", [])
-        ]
+        self.blocklist_patterns = [rule.pattern for rule in ravel_guard.blocklist()]
 
     def _load_model(self):
         """Load the pre-trained SVM model and TF-IDF vectorizer from disk.
