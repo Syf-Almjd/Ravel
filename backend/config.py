@@ -22,7 +22,7 @@ MAX_INPUT_BYTES = 16_384  # Max size in bytes (16 KB) for the raw input
 # The Guard is an ML model that checks if input looks like a prompt injection.
 # It uses an SVM (a fast ML classifier) trained on malicious vs. safe prompts.
 GUARD_CONFIDENCE_THRESHOLD = 0.50  # If confidence < 50%, treat input as unsafe
-BLOCKLIST_PATH = "data/keyword_blocklist.json"  # Extra keywords to always block
+BLOCKLIST_PATH = "packages/ravel-check/src/ravel/data/keyword_blocklist.json"  # the blocklist now ships in the ravel-check package
 GUARD_MODEL_PATH = "models/guard_svm.pkl"       # The trained SVM model file
 GUARD_VECTORIZER_PATH = "models/tfidf_vectorizer.pkl"  # Converts text to numbers for the SVM
 

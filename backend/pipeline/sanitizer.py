@@ -21,51 +21,20 @@ If an injection is detected here, the request is blocked immediately
 and never reaches the AI model.
 """
 
-import re
+# The patterns and checks live in the ravel-check package (packages/ravel-check), so the server and every app that
+# imports Ravel run the same rules. These names stay importable from here for existing callers.
+from ravel.sanitizer import (  # noqa: F401
+    HOMOGLYPH_MAP,
+    INJECTION_PATTERNS,
+    UNICODE_DANGEROUS,
+    find_injections,
+    normalize_homoglyphs,
+    size_problems,
+    strip_invisible,
+)
 
 import config
 from pipeline import PipelineContext
-
-# ── Dangerous Unicode ranges ────────────────────────────────
-# These are invisible characters that attackers use to hide instructions.
-# For example: zero-width spaces can hide "ignore all instructions" inside normal text.
-UNICODE_DANGEROUS = re.compile(
-    r"[\u200b-\u200f"   # zero-width space, joiners, direction marks
-    r"\u2028-\u202f"    # line/paragraph separators, embedding overrides
-    r"\ufeff"           # BOM / zero-width no-break space
-    r"\u00ad"           # soft hyphen
-    r"\u2060-\u2069"    # word joiners, invisible operators
-    r"\u180e"           # Mongolian vowel separator
-    r"\ufff9-\ufffb"    # interlinear annotations
-    r"]"
-)
-
-# ── Prompt injection patterns ───────────────────────────────
-# These are common phrases attackers use to trick the AI into ignoring its rules.
-# E.g., "[INST]", "<<SYS>>", "IGNORE ALL PREVIOUS INSTRUCTIONS"
-INJECTION_PATTERNS = re.compile(
-    r"\[INST\]"
-    r"|<<SYS>>"
-    r"|<\|system\|>"
-    r"|<\|assistant\|>"
-    r"|<\|user\|>"
-    r"|<\|im_start\|>"
-    r"|<\|im_end\|>"
-    r"|system:\s*you\s+are"
-    r"|IGNORE\s+(?:ALL\s+)?PREVIOUS\s+INSTRUCTIONS"
-    r"|forget\s+(?:all\s+)?(?:your\s+)?(?:previous\s+)?instructions",
-    re.IGNORECASE,
-)
-
-# ── Homoglyph map ───────────────────────────────────────────
-# Homoglyphs are characters from other alphabets that LOOK like English letters.
-# Attackers use these to bypass keyword filters.
-# E.g., Cyrillic "а" (U+0430) looks identical to English "a" but is a different character.
-HOMOGLYPH_MAP = {
-    "\u0430": "a", "\u0435": "e", "\u043e": "o",  # Cyrillic look-alikes
-    "\u0441": "c", "\u0440": "p", "\u0443": "y",
-    "\uff41": "a", "\uff45": "e", "\uff4f": "o",  # Fullwidth look-alikes
-}
 
 
 class Sanitizer:
@@ -73,34 +42,22 @@ class Sanitizer:
 
     def _strip_unicode(self, text: str) -> str:
         """Remove invisible characters that could hide malicious instructions."""
-        return UNICODE_DANGEROUS.sub("", text)
+        return strip_invisible(text)[0]
 
     def _normalize_homoglyphs(self, text: str) -> str:
         """Replace foreign-alphabet look-alikes with real English letters.
         This catches attacks like using Cyrillic 'а' instead of English 'a'."""
-        for glyph, replacement in HOMOGLYPH_MAP.items():
-            text = text.replace(glyph, replacement)
-        return text
+        return normalize_homoglyphs(text)
 
     def _detect_injection(self, text: str) -> list[str]:
         """Check if the text contains known prompt injection phrases.
         Returns a list of warnings found."""
-        flags = []
-        matches = INJECTION_PATTERNS.findall(text)
-        if matches:
-            flags.append(f"prompt_injection_detected: {len(matches)} pattern(s)")
-        return flags
+        matches = find_injections(text)
+        return [f"prompt_injection_detected: {len(matches)} pattern(s)"] if matches else []
 
     def _check_size(self, text: str) -> list[str]:
         """Reject inputs that are too big (prevents DoS and abuse)."""
-        flags = []
-        byte_len = len(text.encode("utf-8"))
-        if byte_len > config.MAX_INPUT_BYTES:
-            flags.append(f"payload_too_large: {byte_len} bytes")
-        word_count = len(text.split())
-        if word_count > config.MAX_INPUT_TOKENS:
-            flags.append(f"token_limit_exceeded: ~{word_count} tokens")
-        return flags
+        return size_problems(text, config.MAX_INPUT_BYTES, config.MAX_INPUT_TOKENS)
 
     async def process(self, ctx: PipelineContext) -> PipelineContext:
         """Run all sanitization checks on the user input.
